@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # ========== UBUNTU SETUP ==========
+    # ========== UBUNTU BUILD ==========
     - name: Install Ubuntu dependencies
       if: matrix.os == 'ubuntu-latest'
       run: |
@@ -31,7 +31,7 @@ jobs:
             instagram.cpp main.cpp \
             -lcurl -ljsoncpp -lz -o instagram
 
-    # ========== WINDOWS SETUP ==========
+    # ========== WINDOWS BUILD ==========
     - name: Setup MSVC
       if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
@@ -47,15 +47,15 @@ jobs:
 
     - name: Build Windows executable
       if: matrix.os == 'windows-latest'
+      shell: pwsh  # Use PowerShell for better variable handling
       run: |
         $vcpkgRoot = "${{ github.workspace }}\vcpkg\installed\x64-windows-static"
-        cl /EHsc /I"$vcpkgRoot\include" ^
-            instagram.cpp main.cpp ^
-            /link "$vcpkgRoot\lib\curl.lib" ^
-                   "$vcpkgRoot\lib\jsoncpp.lib" ^
-                   "$vcpkgRoot\lib\zlib.lib" ^
+        cl /EHsc /I"$vcpkgRoot\include" `
+            instagram.cpp main.cpp `
+            /link "$vcpkgRoot\lib\curl.lib" `
+                   "$vcpkgRoot\lib\jsoncpp.lib" `
+                   "$vcpkgRoot\lib\zlib.lib" `
             /out:instagram.exe
-      shell: cmd
 
     # ========== UPLOAD ARTIFACTS ==========
     - name: Upload executables
