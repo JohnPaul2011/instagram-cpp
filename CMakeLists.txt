@@ -10,7 +10,6 @@ endif()
 
 # Force static linking
 set(BUILD_SHARED_LIBS OFF)
-set(CURL_USE_STATIC_LIBS ON)
 
 # Add executable
 add_executable(instagram
@@ -18,19 +17,16 @@ add_executable(instagram
     main.cpp
 )
 
-# For vcpkg (Windows)
+# For vcpkg (Windows) - NO find_package needed!
 if(DEFINED VCPKG_TOOLCHAIN)
-    # vcpkg provides these targets automatically
-    find_package(curl CONFIG REQUIRED)
-    find_package(jsoncpp CONFIG REQUIRED)
-
+    # vcpkg automatically provides these - just link to them
     target_link_libraries(instagram PRIVATE
-        ZLIB::ZLIB
-        curl::curl
-        jsoncpp::jsoncpp
+        zlib
+        curl
+        jsoncpp
     )
 else()
-    # For Linux
+    # For Linux - use system packages
     find_package(CURL REQUIRED)
     find_package(JsonCpp 1.9.4 CONFIG)
 
