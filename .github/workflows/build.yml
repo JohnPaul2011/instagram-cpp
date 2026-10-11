@@ -30,7 +30,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         cd vcpkg
-        vcpkg install --triplet x64-windows-static curl[core,ssl] jsoncpp
+        vcpkg install --triplet x64-windows-static curl[core,ssl]:x64-windows-static jsoncpp:x64-windows-static
         cd ..
 
     # ========== LINUX SETUP ==========
