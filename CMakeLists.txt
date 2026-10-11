@@ -13,16 +13,18 @@ add_executable(instagram
     main.cpp
 )
 
-# Check if we're using vcpkg (Windows)
+# For vcpkg (Windows) - use the targets it provides
 if(DEFINED VCPKG_TOOLCHAIN)
-    # vcpkg will provide these automatically - no need to find_package
-    target_link_libraries(instagram PRIVATE CURL::libcurl JsonCpp::JsonCpp)
+    find_package(CURL CONFIG REQUIRED)
+    find_package(jsoncpp CONFIG REQUIRED)
+    target_link_libraries(instagram PRIVATE
+        CURL::libcurl
+        jsoncpp::jsoncpp
+    )
 else()
-    # Linux - find packages normally
+    # For Linux - use system packages
     find_package(CURL REQUIRED)
-
-    # Try CONFIG first, then fallback to manual paths
-    find_package(JsonCpp CONFIG)
+    find_package(JsonCpp 1.9.4 CONFIG)
     if(NOT JsonCpp_FOUND)
         find_path(JsonCpp_INCLUDE_DIR NAMES json/json.h
             PATHS /usr/include/jsoncpp /usr/local/include/jsoncpp
@@ -33,9 +35,18 @@ else()
         if(NOT JsonCpp_INCLUDE_DIR OR NOT JsonCpp_LIBRARY)
             message(FATAL_ERROR "JsonCpp not found. Install with: sudo apt-get install libjsoncpp-dev")
         endif()
-        target_link_libraries(instagram PRIVATE ${CURL_LIBRARIES} ${JsonCpp_LIBRARY})
-        target_include_directories(instagram PRIVATE ${CURL_INCLUDE_DIRS} ${JsonCpp_INCLUDE_DIR})
+        target_link_libraries(instagram PRIVATE
+            ${CURL_LIBRARIES}
+            ${JsonCpp_LIBRARY}
+        )
+        target_include_directories(instagram PRIVATE
+            ${CURL_INCLUDE_DIRS}
+            ${JsonCpp_INCLUDE_DIR}
+        )
     else()
-        target_link_libraries(instagram PRIVATE CURL::libcurl JsonCpp::JsonCpp)
+        target_link_libraries(instagram PRIVATE
+            CURL::libcurl
+            JsonCpp::JsonCpp
+        )
     endif()
 endif()
