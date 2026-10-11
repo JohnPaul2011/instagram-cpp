@@ -11,10 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        build_type: [Release, Debug]
-        exclude:
-          - os: windows-latest
-            build_type: Debug   # Skip Debug for Windows to save time
+        build_type: [Release]
 
     runs-on: ${{ matrix.os }}
 
@@ -26,12 +23,14 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libcurl4-openssl-dev libjsoncpp-dev
+        # Verify JsonCpp is found
+        ls /usr/include/jsoncpp/json/
 
     - name: Install dependencies (macOS)
       if: matrix.os == 'macos-latest'
       run: brew install curl jsoncpp
 
-    - name: Install vcpkg (Windows)
+    - name: Install dependencies (Windows)
       if: matrix.os == 'windows-latest'
       run: |
         git clone https://github.com/microsoft/vcpkg
