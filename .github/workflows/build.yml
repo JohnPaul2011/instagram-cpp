@@ -18,6 +18,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y libcurl4-openssl-dev libjsoncpp-dev
 
+    - name: Verify JsonCpp installation
+      run: ls /usr/include/jsoncpp/json/
+
     - name: Configure CMake
       run: |
         mkdir -p build
