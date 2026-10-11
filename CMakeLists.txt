@@ -25,6 +25,11 @@ if(DEFINED VCPKG_TOOLCHAIN)
         curl
         jsoncpp
     )
+
+    # Manually add vcpkg include directories
+    target_include_directories(instagram PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/installed/x64-windows-static/include
+    )
 else()
     # For Linux - use system packages
     find_package(CURL REQUIRED)
