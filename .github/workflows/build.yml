@@ -42,7 +42,7 @@ jobs:
         git clone https://github.com/microsoft/vcpkg
         cd vcpkg
         ./bootstrap-vcpkg.bat
-        vcpkg install --triplet x64-windows-static curl jsoncpp
+        ./vcpkg install --triplet x64-windows-static curl jsoncpp
         cd ..
 
     - name: Build Windows executable
@@ -50,12 +50,25 @@ jobs:
       shell: pwsh
       run: |
         $vcpkgRoot = "$env:GITHUB_WORKSPACE/vcpkg/installed/x64-windows-static"
-        # Use forward slashes for paths in cl
+
+        # vcpkg installs libcurl as libcurl.lib, not curl.lib
+        $curlLib = Join-Path $vcpkgRoot 'lib/libcurl.lib'
+        $jsonCppLib = Join-Path $vcpkgRoot 'lib/jsoncpp.lib'
+        $zLib = Join-Path $vcpkgRoot 'lib/zlib.lib'
+
+        foreach ($lib in @($curlLib, $jsonCppLib, $zLib)) {
+          if (!(Test-Path $lib)) {
+            Write-Error "Missing dependency library: $lib"
+            Get-ChildItem (Join-Path $vcpkgRoot 'lib') -ErrorAction Continue
+            exit 1
+          }
+        }
+
         cl /std:c++17 /EHsc /I"$vcpkgRoot/include" `
             instagram.cpp main.cpp `
-            /link "$vcpkgRoot/lib/curl.lib" `
-                   "$vcpkgRoot/lib/jsoncpp.lib" `
-                   "$vcpkgRoot/lib/zlib.lib" `
+            /link "$curlLib" `
+                   "$jsonCppLib" `
+                   "$zLib" `
             /out:instagram.exe
 
     # ========== UPLOAD ARTIFACTS ==========
