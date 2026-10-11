@@ -49,12 +49,13 @@ jobs:
       if: matrix.os == 'windows-latest'
       shell: pwsh
       run: |
-        $vcpkgRoot = "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows-static"
-        cl /std:c++17 /EHsc /I"$vcpkgRoot\include" `
+        $vcpkgRoot = "$env:GITHUB_WORKSPACE/vcpkg/installed/x64-windows-static"
+        # Use forward slashes for paths in cl
+        cl /std:c++17 /EHsc /I"$vcpkgRoot/include" `
             instagram.cpp main.cpp `
-            /link "$vcpkgRoot\lib\curl.lib" `
-                   "$vcpkgRoot\lib\jsoncpp.lib" `
-                   "$vcpkgRoot\lib\zlib.lib" `
+            /link "$vcpkgRoot/lib/curl.lib" `
+                   "$vcpkgRoot/lib/jsoncpp.lib" `
+                   "$vcpkgRoot/lib/zlib.lib" `
             /out:instagram.exe
 
     # ========== UPLOAD ARTIFACTS ==========
