@@ -47,10 +47,10 @@ jobs:
 
     - name: Build Windows executable
       if: matrix.os == 'windows-latest'
-      shell: pwsh  # Use PowerShell for better variable handling
+      shell: pwsh
       run: |
-        $vcpkgRoot = "${{ github.workspace }}\vcpkg\installed\x64-windows-static"
-        cl /EHsc /I"$vcpkgRoot\include" `
+        $vcpkgRoot = "$env:GITHUB_WORKSPACE\vcpkg\installed\x64-windows-static"
+        cl /std:c++17 /EHsc /I"$vcpkgRoot\include" `
             instagram.cpp main.cpp `
             /link "$vcpkgRoot\lib\curl.lib" `
                    "$vcpkgRoot\lib\jsoncpp.lib" `
