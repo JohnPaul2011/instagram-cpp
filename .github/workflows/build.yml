@@ -8,30 +8,65 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        build_type: [Release]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies
+    - name: Install dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt-get install -y libcurl4-openssl-dev libjsoncpp-dev
 
-    - name: Verify JsonCpp installation
-      run: ls /usr/include/jsoncpp/json/
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        git clone https://github.com/microsoft/vcpkg
+        cd vcpkg
+        ./bootstrap-vcpkg.bat
+        vcpkg install curl jsoncpp
+        cd ..
+
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: brew install curl jsoncpp
 
     - name: Configure CMake
       run: |
         mkdir -p build
         cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        else
+          cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        fi
+      shell: bash
 
     - name: Build
-      run: cmake --build build --config Release
+      run: cmake --build build --config ${{ matrix.build_type }}
+      shell: bash
 
-    - name: Upload executable
+    - name: Rename executables
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          cp build/instagram instagram-linux-${{ matrix.build_type }}
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          cp build/instagram instagram-macos-${{ matrix.build_type }}
+        elif [ "$RUNNER_OS" == "Windows" ]; then
+          cp build/${{ matrix.build_type }}/instagram.exe instagram-windows-${{ matrix.build_type }}.exe
+        fi
+      shell: bash
+
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: instagram-linux
-        path: build/instagram
+        name: InstagramCpp-${{ matrix.os }}-${{ matrix.build_type }}
+        path: |
+          instagram-*
+          !build/
