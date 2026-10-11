@@ -13,24 +13,23 @@ add_executable(instagram
     main.cpp
 )
 
-# For vcpkg (Windows) - use automatic integration
+# For vcpkg (Windows) - use the correct library names
 if(DEFINED VCPKG_TOOLCHAIN)
-    # vcpkg will automatically provide include paths and libraries
-    # Just link to the libraries by name
+    # vcpkg static libraries have these exact names
     target_link_libraries(instagram PRIVATE
-        curl
+        libcurl
         jsoncpp
     )
 
-    # Manually add vcpkg include directories (just in case)
+    # Add vcpkg include directories
     target_include_directories(instagram PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/installed/x64-windows-static/include
     )
 else()
     # For Linux - use system packages
     find_package(CURL REQUIRED)
-
     find_package(JsonCpp 1.9.4 CONFIG)
+
     if(NOT JsonCpp_FOUND)
         find_path(JsonCpp_INCLUDE_DIR NAMES json/json.h
             PATHS /usr/include/jsoncpp /usr/local/include/jsoncpp
