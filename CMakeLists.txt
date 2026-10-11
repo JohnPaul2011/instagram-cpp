@@ -36,4 +36,23 @@ else()
             PATHS /usr/include/jsoncpp /usr/local/include/jsoncpp
         )
         find_library(JsonCpp_LIBRARY NAMES jsoncpp
-            PATHS /
+            PATHS /usr/lib/x86_64-linux-gnu /usr/lib /usr/local/lib
+        )
+        if(NOT JsonCpp_INCLUDE_DIR OR NOT JsonCpp_LIBRARY)
+            message(FATAL_ERROR "JsonCpp not found. Install with: sudo apt-get install libjsoncpp-dev")
+        endif()
+        target_link_libraries(instagram PRIVATE
+            ${CURL_LIBRARIES}
+            ${JsonCpp_LIBRARY}
+        )
+        target_include_directories(instagram PRIVATE
+            ${CURL_INCLUDE_DIRS}
+            ${JsonCpp_INCLUDE_DIR}
+        )
+    else()
+        target_link_libraries(instagram PRIVATE
+            CURL::libcurl
+            JsonCpp::JsonCpp
+        )
+    endif()
+endif()
