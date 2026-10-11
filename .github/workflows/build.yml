@@ -1,4 +1,4 @@
-name: Build InstagramCpp Static
+name: Build Static Executables
 
 on:
   push:
@@ -7,39 +7,61 @@ on:
     branches: [ main ]
 
 jobs:
-  build-windows-static:
-    runs-on: windows-latest
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install vcpkg
+    # ========== WINDOWS SETUP ==========
+    - name: Setup vcpkg (Windows)
+      if: matrix.os == 'windows-latest'
       run: |
         git clone https://github.com/microsoft/vcpkg
         cd vcpkg
         ./bootstrap-vcpkg.bat
         cd ..
 
-    - name: Install static dependencies
+    - name: Install static dependencies (Windows)
+      if: matrix.os == 'windows-latest'
       run: |
         cd vcpkg
         vcpkg install --triplet x64-windows-static curl[core,ssl] jsoncpp
         cd ..
 
-    - name: Configure CMake for static build
+    # ========== LINUX SETUP ==========
+    - name: Install static dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
       run: |
-        mkdir build
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev libjsoncpp-dev
+
+    # ========== BUILD ==========
+    - name: Configure CMake
+      run: |
+        mkdir -p build
         cd build
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake `
-               -DCMAKE_BUILD_TYPE=Release `
-               -DBUILD_SHARED_LIBS=OFF `
-               -DCURL_USE_STATIC_LIBS=ON
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake `
+                 -DCMAKE_BUILD_TYPE=Release
+        else
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+        fi
+      shell: bash
 
     - name: Build static executable
       run: cmake --build build --config Release
+      shell: bash
 
-    - name: Upload static executable
+    # ========== UPLOAD ==========
+    - name: Upload static executables
       uses: actions/upload-artifact@v4
       with:
-        name: instagram-windows-static
-        path: build/Release/instagram.exe
+        name: instagram-static-${{ matrix.os }}
+        path: |
+          build/Release/instagram${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          !build/
