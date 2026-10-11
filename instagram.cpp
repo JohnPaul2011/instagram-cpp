@@ -1,26 +1,21 @@
-// instagram.cpp - COMPLETE IMPLEMENTATION
+// instagram.cpp - FIXED VERSION
 #include "instagram.hpp"
 #include <fstream>
 #include <sstream>
 #include <regex>
 #include <algorithm>
 #include <ctime>
+#include <thread>
+#include <iostream>  // Added for std::cout, std::cerr, std::cin
 #include <iomanip>
 
-// Default User Agents for rotation
 static const std::vector<std::string> DEFAULT_USER_AGENTS = {
-    // iOS
     "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
-    // Android
     "Mozilla/5.0 (Linux; Android 12; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36",
     "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36",
-    "Mozilla/5.0 (Linux; Android 11; SM-A525F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36",
-    // Desktop
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"
 };
 
 // ==================== INSTAGRAM CLASS IMPLEMENTATION ====================
@@ -107,7 +102,6 @@ void Instagram::parse_cookies_from_response(const CurlResponse& response) {
         if (eq_pos != std::string::npos) {
             std::string name = cookie.substr(0, eq_pos);
             std::string value = cookie.substr(eq_pos + 1);
-            // Trim whitespace
             name.erase(0, name.find_first_not_of(" \t"));
             name.erase(name.find_last_not_of(" \t") + 1);
             value.erase(0, value.find_first_not_of(" \t"));
@@ -136,7 +130,6 @@ void Instagram::apply_rate_limit() {
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_request_time).count();
     if (elapsed < rate_config.min_delay_ms) {
         int delay = rate_config.min_delay_ms - elapsed;
-        // Add random jitter to avoid pattern detection
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> dis(0, delay / 2);
@@ -180,7 +173,6 @@ Instagram::CurlResponse Instagram::request(const std::string& url, const std::st
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
         curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, method.c_str());
 
-        // Set headers
         struct curl_slist* headers = nullptr;
         headers = curl_slist_append(headers, "X-IG-App-ID: 936619743392459");
         headers = curl_slist_append(headers, "Accept: */*");
@@ -198,14 +190,10 @@ Instagram::CurlResponse Instagram::request(const std::string& url, const std::st
             headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
         }
 
-        // Perform request
         CURLcode res = curl_easy_perform(curl);
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.http_code);
         response.data = response_data;
-
-        // Parse cookies from response
         parse_cookies_from_response(response);
-
         curl_slist_free_all(headers);
 
         if (res != CURLE_OK) {
@@ -218,7 +206,6 @@ Instagram::CurlResponse Instagram::request(const std::string& url, const std::st
             continue;
         }
 
-        // Check for rate limiting
         if (is_rate_limited(response)) {
             if (retry_count >= rate_config.max_retries) {
                 throw InstagramException("Rate limited by Instagram. Try again later.");
@@ -234,7 +221,7 @@ Instagram::CurlResponse Instagram::request(const std::string& url, const std::st
 }
 
 std::string Instagram::extract_csrf_token(const std::string& html) {
-    std::regex csrf_regex(R"(name="csrf_token"\s+value="([^"]+)")");
+    std::regex csrf_regex(R"(name=\"csrf_token\"\s+value=\"([^\"]+)\")");
     std::smatch matches;
     if (std::regex_search(html, matches, csrf_regex) && matches.size() > 1) {
         return matches[1].str();
@@ -243,7 +230,7 @@ std::string Instagram::extract_csrf_token(const std::string& html) {
 }
 
 std::string Instagram::extract_checkpoint_token(const std::string& html) {
-    std::regex checkpoint_regex(R"(window\._sharedData\s*=\s*\{[^}]*"entry_data":\{[^}]*"Challenge":\[[^\]]*"checkpoint_url":"[^"]*/checkpoint/(?:transitive/)?([^"]+))");
+    std::regex checkpoint_regex(R"(window\._sharedData\s*=\s*\{[^}]*\"entry_data\":\{[^}]*\"Challenge\":\[[^\]]*\"checkpoint_url\":\"[^\"]*/checkpoint/(?:transitive/)?([^\"]+))");
     std::smatch matches;
     if (std::regex_search(html, matches, checkpoint_regex) && matches.size() > 1) {
         return matches[1].str();
@@ -302,13 +289,12 @@ Json::Value Instagram::fetch_graphql(const std::string& query, const Json::Value
         throw InstagramException("Failed to parse GraphQL response: " + errs);
     }
     if (result.isMember("errors")) {
-        throw InstagramException("GraphQL error: " + result["errors"].toString());
+        throw InstagramException("GraphQL error: " + result["errors"].asString());
     }
     return result;
 }
 
 Json::Value Instagram::login_flow(const std::string& username, const std::string& password) {
-    // Step 1: Get login page to extract CSRF token
     auto response = request("https://www.instagram.com/accounts/login/", "GET");
     if (response.http_code != 200) {
         throw InstagramException("Failed to fetch login page");
@@ -319,7 +305,6 @@ Json::Value Instagram::login_flow(const std::string& username, const std::string
         throw InstagramException("Failed to extract CSRF token");
     }
 
-    // Step 2: Send login request
     std::string post_data =
         "username=" + username +
         "&enc_password=#PWD_INSTAGRAM_BROWSER:0:" + std::to_string(time(nullptr)) + ":" + password +
@@ -349,7 +334,7 @@ Json::Value Instagram::login_flow(const std::string& username, const std::string
 
     if (result.isMember("message") && result["message"].asString() == "checkpoint_required") {
         if (result.isMember("checkpoint_url")) {
-            return result; // Let caller handle checkpoint
+            return result;
         }
         throw InstagramException("Checkpoint required but no URL provided");
     }
@@ -359,7 +344,6 @@ Json::Value Instagram::login_flow(const std::string& username, const std::string
         throw InstagramException("Login failed: " + message);
     }
 
-    // Get user ID
     if (result.isMember("user")) {
         user_id = result["user"]["pk"].asString();
     }
@@ -376,13 +360,11 @@ void Instagram::handle_checkpoint(const std::string& checkpoint_url,
         throw InstagramException("Failed to extract checkpoint token from URL: " + checkpoint_url);
     }
 
-    // Get verification code from handler
     std::string verification_code = two_factor_handler->get_verification_code(checkpoint_url);
     if (verification_code.empty()) {
         throw InstagramException("No verification code provided");
     }
 
-    // Send verification code
     std::string post_data =
         "username=" + username +
         "&enc_password=#PWD_INSTAGRAM_BROWSER:0:" + std::to_string(time(nullptr)) + ":" + password +
@@ -425,17 +407,14 @@ bool Instagram::login_with_2fa(const std::string& username,
     try {
         Json::Value result = login_flow(username, password);
 
-        // Check if checkpoint is required
         if (result.isMember("message") && result["message"].asString() == "checkpoint_required") {
             if (!verification_code.empty()) {
-                // User provided code, try to handle checkpoint
                 if (result.isMember("checkpoint_url")) {
                     handle_checkpoint(result["checkpoint_url"].asString(), username, password);
                 } else {
                     throw InstagramException("Checkpoint required but no URL in response");
                 }
             } else {
-                // No code provided, checkpoint is needed
                 return false;
             }
         }
@@ -561,8 +540,8 @@ std::vector<Profile> Instagram::get_followers(const std::string& username, size_
 
     if (result.isMember("data") && result["data"].isMember("user")) {
         Json::Value edges = result["data"]["user"]["edge_followed_by"]["edges"];
-        for (const auto& edge : edges) {
-            followers.push_back(Profile::from_json(edge["node"]));
+        for (Json::Value::ArrayIndex i = 0; i < static_cast<Json::Value::ArrayIndex>(std::min(edges.size(), limit)); i++) {
+            followers.push_back(Profile::from_json(edges[i]["node"]));
         }
     }
 
@@ -603,8 +582,8 @@ std::vector<Profile> Instagram::get_following(const std::string& username, size_
 
     if (result.isMember("data") && result["data"].isMember("user")) {
         Json::Value edges = result["data"]["user"]["edge_follow"]["edges"];
-        for (const auto& edge : edges) {
-            following.push_back(Profile::from_json(edge["node"]));
+        for (Json::Value::ArrayIndex i = 0; i < static_cast<Json::Value::ArrayIndex>(std::min(edges.size(), limit)); i++) {
+            following.push_back(Profile::from_json(edges[i]["node"]));
         }
     }
 
@@ -621,7 +600,7 @@ std::vector<Post> Instagram::get_posts(const std::string& username, size_t limit
     std::vector<Post> posts;
     Json::Value edges = data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"];
 
-    for (size_t i = 0; i < std::min(edges.size(), limit); i++) {
+    for (Json::Value::ArrayIndex i = 0; i < static_cast<Json::Value::ArrayIndex>(std::min(edges.size(), limit)); i++) {
         posts.push_back(Post::from_json(edges[i]["node"]));
     }
 
@@ -648,7 +627,7 @@ std::vector<Post> Instagram::get_hashtag_posts(const std::string& hashtag, size_
     std::vector<Post> posts;
     if (data.isMember("graphql") && data["graphql"].isMember("hashtag")) {
         Json::Value edges = data["graphql"]["hashtag"]["edge_hashtag_to_media"]["edges"];
-        for (size_t i = 0; i < std::min(edges.size(), limit); i++) {
+        for (Json::Value::ArrayIndex i = 0; i < static_cast<Json::Value::ArrayIndex>(std::min(edges.size(), limit)); i++) {
             posts.push_back(Post::from_json(edges[i]["node"]));
         }
     }
@@ -721,8 +700,8 @@ std::vector<Post> Instagram::get_stories(const std::string& username) {
 
     if (result.isMember("data") && result["data"].isMember("user")) {
         Json::Value edges = result["data"]["user"]["edge_user_to_story"]["edges"];
-        for (const auto& edge : edges) {
-            stories.push_back(Post::from_json(edge["node"]));
+        for (Json::Value::ArrayIndex i = 0; i < edges.size(); i++) {
+            stories.push_back(Post::from_json(edges[i]["node"]));
         }
     }
 
@@ -744,8 +723,6 @@ std::string Instagram::download_media(const std::string& url, const std::string&
     file.write(response.data.data(), response.data.size());
     return filename;
 }
-
-// ==================== PROFILE CLASS IMPLEMENTATION ====================
 
 Json::Value Profile::to_json() const {
     Json::Value json;
@@ -773,7 +750,6 @@ Profile Profile::from_json(const Json::Value& json) {
     profile.is_private = json.get("is_private", false).asBool();
     profile.is_verified = json.get("is_verified", false).asBool();
 
-    // Handle both direct count and edge count formats
     if (json.isMember("edge_followed_by")) {
         profile.followers_count = json["edge_followed_by"].get("count", 0).asInt();
     } else {
@@ -799,8 +775,6 @@ Profile Profile::from_json(const Json::Value& json) {
 
     return profile;
 }
-
-// ==================== POST CLASS IMPLEMENTATION ====================
 
 Json::Value Post::to_json() const {
     Json::Value json;
@@ -835,18 +809,15 @@ Json::Value Post::to_json() const {
 Post Post::from_json(const Json::Value& node) {
     Post post;
 
-    // Basic info
     post.shortcode = node.get("shortcode", "").asString();
     post.pk_id = node.get("id", "").asString();
     post.is_video = node.get("is_video", false).asBool();
 
-    // Owner info
     if (node.isMember("owner")) {
         post.owner_username = node["owner"].get("username", "").asString();
         post.owner_pk_id = node["owner"].get("id", "").asString();
     }
 
-    // Caption
     if (node.isMember("edge_media_to_caption") &&
         node["edge_media_to_caption"].isMember("edges") &&
         !node["edge_media_to_caption"]["edges"].empty()) {
@@ -855,7 +826,6 @@ Post Post::from_json(const Json::Value& node) {
         post.caption = node.get("caption", "").asString();
     }
 
-    // Engagement
     if (node.isMember("edge_liked_by")) {
         post.like_count = node["edge_liked_by"].get("count", 0).asInt();
     } else {
@@ -870,7 +840,6 @@ Post Post::from_json(const Json::Value& node) {
 
     post.view_count = node.get("video_view_count", 0).asInt();
 
-    // Date
     if (node.isMember("taken_at_timestamp")) {
         time_t timestamp = static_cast<time_t>(node["taken_at_timestamp"].asInt());
         char buffer[80];
@@ -878,32 +847,20 @@ Post Post::from_json(const Json::Value& node) {
         post.date_posted = buffer;
     }
 
-    // Media URLs
     if (post.is_video) {
         post.video_url = node.get("video_url", "").asString();
         if (node.isMember("thumbnail_src")) {
             post.thumbnail_urls.push_back(node["thumbnail_src"].asString());
         }
-        if (node.isMember("thumbnail_resources")) {
-            for (const auto& thumb : node["thumbnail_resources"]) {
-                post.thumbnail_urls.push_back(thumb.get("src", "").asString());
-            }
-        }
     } else {
         if (node.isMember("display_url")) {
             post.image_urls.push_back(node["display_url"].asString());
         }
-        if (node.isMember("display_resources")) {
-            for (const auto& img : node["display_resources"]) {
-                post.image_urls.push_back(img.get("src", "").asString());
-            }
-        }
     }
 
-    // Handle sidecar (carousel) posts
     if (node.isMember("edge_sidecar_to_children")) {
-        for (const auto& child : node["edge_sidecar_to_children"]["edges"]) {
-            Json::Value child_node = child["node"];
+        for (Json::Value::ArrayIndex i = 0; i < node["edge_sidecar_to_children"]["edges"].size(); i++) {
+            Json::Value child_node = node["edge_sidecar_to_children"]["edges"][i]["node"];
             if (child_node.get("is_video", false).asBool()) {
                 if (!child_node.get("video_url", "").asString().empty()) {
                     post.video_url = child_node["video_url"].asString();
@@ -918,8 +875,6 @@ Post Post::from_json(const Json::Value& node) {
 
     return post;
 }
-
-// ==================== 2FA HANDLER IMPLEMENTATION ====================
 
 std::string ConsoleTwoFactorHandler::get_verification_code(const std::string& checkpoint_url) {
     std::cout << "\n=== 2FA Required ===" << std::endl;
