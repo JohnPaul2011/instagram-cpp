@@ -1,4 +1,4 @@
-name: Build Ubuntu Executable
+name: Build Both Ubuntu and Windows
 
 on:
   push:
@@ -8,24 +8,59 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies
+    # ========== UBUNTU SETUP ==========
+    - name: Install Ubuntu dependencies
+      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt-get install -y g++ libcurl4-openssl-dev libjsoncpp-dev
 
-    - name: Build executable
+    - name: Build Ubuntu executable
+      if: matrix.os == 'ubuntu-latest'
       run: |
         g++ -std=c++17 -I/usr/include/jsoncpp \
             instagram.cpp main.cpp \
             -lcurl -ljsoncpp -lz -o instagram
 
-    - name: Upload executable
+    # ========== WINDOWS SETUP ==========
+    - name: Setup MSVC
+      if: matrix.os == 'windows-latest'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install vcpkg
+      if: matrix.os == 'windows-latest'
+      run: |
+        git clone https://github.com/microsoft/vcpkg
+        cd vcpkg
+        ./bootstrap-vcpkg.bat
+        vcpkg install --triplet x64-windows-static curl jsoncpp
+        cd ..
+
+    - name: Build Windows executable
+      if: matrix.os == 'windows-latest'
+      run: |
+        $vcpkgRoot = "${{ github.workspace }}\vcpkg\installed\x64-windows-static"
+        cl /EHsc /I"$vcpkgRoot\include" ^
+            instagram.cpp main.cpp ^
+            /link "$vcpkgRoot\lib\curl.lib" ^
+                   "$vcpkgRoot\lib\jsoncpp.lib" ^
+                   "$vcpkgRoot\lib\zlib.lib" ^
+            /out:instagram.exe
+      shell: cmd
+
+    # ========== UPLOAD ARTIFACTS ==========
+    - name: Upload executables
       uses: actions/upload-artifact@v4
       with:
-        name: instagram-ubuntu
-        path: instagram
+        name: instagram-${{ matrix.os }}
+        path: |
+          instagram${{ matrix.os == 'windows-latest' && '.exe' || '' }}
