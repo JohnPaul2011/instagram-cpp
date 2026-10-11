@@ -1,4 +1,4 @@
-name: Build InstagramCpp
+name: Build InstagramCpp Static
 
 on:
   push:
@@ -7,66 +7,39 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        build_type: [Release]
-
-    runs-on: ${{ matrix.os }}
+  build-windows-static:
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install dependencies (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libjsoncpp-dev
-
-    - name: Install dependencies (Windows)
-      if: matrix.os == 'windows-latest'
+    - name: Install vcpkg
       run: |
         git clone https://github.com/microsoft/vcpkg
         cd vcpkg
         ./bootstrap-vcpkg.bat
-        vcpkg install curl jsoncpp
         cd ..
 
-    - name: Install dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: brew install curl jsoncpp
-
-    - name: Configure CMake
+    - name: Install static dependencies
       run: |
-        mkdir -p build
+        cd vcpkg
+        vcpkg install --triplet x64-windows-static curl[core,ssl] jsoncpp
+        cd ..
+
+    - name: Configure CMake for static build
+      run: |
+        mkdir build
         cd build
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        else
-          cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        fi
-      shell: bash
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake `
+               -DCMAKE_BUILD_TYPE=Release `
+               -DBUILD_SHARED_LIBS=OFF `
+               -DCURL_USE_STATIC_LIBS=ON
 
-    - name: Build
-      run: cmake --build build --config ${{ matrix.build_type }}
-      shell: bash
+    - name: Build static executable
+      run: cmake --build build --config Release
 
-    - name: Rename executables
-      run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          cp build/instagram instagram-linux-${{ matrix.build_type }}
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          cp build/instagram instagram-macos-${{ matrix.build_type }}
-        elif [ "$RUNNER_OS" == "Windows" ]; then
-          cp build/${{ matrix.build_type }}/instagram.exe instagram-windows-${{ matrix.build_type }}.exe
-        fi
-      shell: bash
-
-    - name: Upload artifacts
+    - name: Upload static executable
       uses: actions/upload-artifact@v4
       with:
-        name: InstagramCpp-${{ matrix.os }}-${{ matrix.build_type }}
-        path: |
-          instagram-*
-          !build/
+        name: instagram-windows-static
+        path: build/Release/instagram.exe
