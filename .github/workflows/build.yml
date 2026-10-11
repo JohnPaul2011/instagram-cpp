@@ -1,4 +1,4 @@
-name: Build Static Executables
+name: Build Static Executables (Direct Compilation)
 
 on:
   push:
@@ -17,50 +17,50 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # ========== WINDOWS SETUP ==========
-    - name: Setup vcpkg (Windows)
+    # ========== LINUX BUILD ==========
+    - name: Install Linux dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y g++ libcurl4-openssl-dev libjsoncpp-dev
+
+    - name: Build Linux static executable
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        g++ -std=c++17 -static -I/usr/include/jsoncpp \
+            instagram.cpp main.cpp \
+            -lcurl -ljsoncpp -lz -o instagram
+
+    # ========== WINDOWS BUILD ==========
+    - name: Setup MSVC
+      if: matrix.os == 'windows-latest'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install vcpkg
       if: matrix.os == 'windows-latest'
       run: |
         git clone https://github.com/microsoft/vcpkg
         cd vcpkg
         ./bootstrap-vcpkg.bat
+        vcpkg install --triplet x64-windows-static curl jsoncpp
         cd ..
 
-    - name: Install static dependencies (Windows)
+    - name: Build Windows static executable
       if: matrix.os == 'windows-latest'
       run: |
-        cd vcpkg
-        vcpkg install --triplet x64-windows-static curl[core,ssl]:x64-windows-static jsoncpp:x64-windows-static
-        cd ..
+        $vcpkgRoot = "${{ github.workspace }}\vcpkg\installed\x64-windows-static"
+        cl /EHsc /I"$vcpkgRoot\include" ^
+            instagram.cpp main.cpp ^
+            /link "$vcpkgRoot\lib\curl.lib" ^
+                   "$vcpkgRoot\lib\jsoncpp.lib" ^
+                   "$vcpkgRoot\lib\zlib.lib" ^
+            /out:instagram.exe
+      shell: cmd
 
-    # ========== LINUX SETUP ==========
-    - name: Install static dependencies (Linux)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libcurl4-openssl-dev libjsoncpp-dev
-
-    # ========== BUILD ==========
-    - name: Configure CMake
-      run: |
-        mkdir -p build
-        cd build
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
-        else
-          cmake .. -DCMAKE_BUILD_TYPE=Release
-        fi
-      shell: bash
-
-    - name: Build static executable
-      run: cmake --build build --config Release
-      shell: bash
-
-    # ========== UPLOAD ==========
-    - name: Upload static executables
+    # ========== UPLOAD ARTIFACTS ==========
+    - name: Upload executables
       uses: actions/upload-artifact@v4
       with:
-        name: instagram-static-${{ matrix.os }}
+        name: instagram-${{ matrix.os }}
         path: |
-          build/Release/instagram${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-          !build/
+          instagram${{ matrix.os == 'windows-latest' && '.exe' || '' }}
