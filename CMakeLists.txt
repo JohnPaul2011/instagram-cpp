@@ -3,6 +3,11 @@ project(InstagramCpp)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# Disable MSVC warnings
+if(MSVC)
+    add_compile_options(/wd4244 /wd4996)
+endif()
+
 # Force static linking
 set(BUILD_SHARED_LIBS OFF)
 set(CURL_USE_STATIC_LIBS ON)
@@ -13,20 +18,19 @@ add_executable(instagram
     main.cpp
 )
 
-# For vcpkg (Windows) - use the correct library names
+# For vcpkg (Windows)
 if(DEFINED VCPKG_TOOLCHAIN)
-    # vcpkg static libraries have these exact names
-    target_link_libraries(instagram PRIVATE
-        libcurl
-        jsoncpp
-    )
+    # vcpkg provides these targets automatically
+    find_package(curl CONFIG REQUIRED)
+    find_package(jsoncpp CONFIG REQUIRED)
 
-    # Add vcpkg include directories
-    target_include_directories(instagram PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/vcpkg/installed/x64-windows-static/include
+    target_link_libraries(instagram PRIVATE
+        ZLIB::ZLIB
+        curl::curl
+        jsoncpp::jsoncpp
     )
 else()
-    # For Linux - use system packages
+    # For Linux
     find_package(CURL REQUIRED)
     find_package(JsonCpp 1.9.4 CONFIG)
 
