@@ -31,17 +31,21 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: brew install curl jsoncpp
 
-    - name: Install dependencies (Windows)
+    - name: Install vcpkg (Windows)
       if: matrix.os == 'windows-latest'
       run: |
+        git clone https://github.com/microsoft/vcpkg
+        cd vcpkg
+        ./bootstrap-vcpkg.bat
         vcpkg install curl jsoncpp
+        cd ..
 
     - name: Configure CMake
       run: |
         mkdir -p build
         cd build
         if [ "$RUNNER_OS" == "Windows" ]; then
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         else
           cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         fi
@@ -58,12 +62,12 @@ jobs:
         elif [ "$RUNNER_OS" == "macOS" ]; then
           cp build/instagram instagram-macos-${{ matrix.build_type }}
         elif [ "$RUNNER_OS" == "Windows" ]; then
-          cp build/Release/instagram.exe instagram-windows-${{ matrix.build_type }}.exe
+          cp build/${{ matrix.build_type }}/instagram.exe instagram-windows-${{ matrix.build_type }}.exe
         fi
       shell: bash
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: InstagramCpp-${{ matrix.os }}-${{ matrix.build_type }}
         path: |
