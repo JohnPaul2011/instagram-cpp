@@ -13,21 +13,19 @@ add_executable(instagram
     main.cpp
 )
 
-# For vcpkg (Windows) - use the targets it provides
+# Let vcpkg handle all dependencies automatically
 if(DEFINED VCPKG_TOOLCHAIN)
-    # vcpkg provides these with lowercase names
-    find_package(curl CONFIG REQUIRED)  # Note: lowercase 'curl'
-    find_package(jsoncpp CONFIG REQUIRED)  # Note: lowercase 'jsoncpp'
-
+    # vcpkg will automatically inject all dependencies
+    # No need for find_package calls - vcpkg does it for us
     target_link_libraries(instagram PRIVATE
-        curl::curl  # vcpkg target name
-        jsoncpp::jsoncpp  # vcpkg target name
+        curl
+        jsoncpp
     )
 else()
     # For Linux - use system packages
     find_package(CURL REQUIRED)
-    find_package(JsonCpp 1.9.4 CONFIG)
 
+    find_package(JsonCpp 1.9.4 CONFIG)
     if(NOT JsonCpp_FOUND)
         find_path(JsonCpp_INCLUDE_DIR NAMES json/json.h
             PATHS /usr/include/jsoncpp /usr/local/include/jsoncpp
