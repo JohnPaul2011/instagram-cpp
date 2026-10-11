@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.10)
+project(InstagramCpp)
+set(CMAKE_CXX_STANDARD 17)
+find_package(CURL REQUIRED)
+find_package(JsonCpp REQUIRED)
+add_executable(instagram instagram.cpp)
+target_link_libraries(instagram ${CURL_LIBRARIES} ${JsonCpp_LIBRARIES})
+target_include_directories(instagram PRIVATE ${CURL_INCLUDE_DIRS} ${JsonCpp_INCLUDE_DIRS})
