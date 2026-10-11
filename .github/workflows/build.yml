@@ -1,0 +1,71 @@
+name: Build InstagramCpp
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        build_type: [Release, Debug]
+        exclude:
+          - os: windows-latest
+            build_type: Debug   # Skip Debug for Windows to save time
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev libjsoncpp-dev
+
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: brew install curl jsoncpp
+
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        vcpkg install curl jsoncpp
+
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        else
+          cmake .. -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        fi
+      shell: bash
+
+    - name: Build
+      run: cmake --build build --config ${{ matrix.build_type }}
+      shell: bash
+
+    - name: Rename executables
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          cp build/instagram instagram-linux-${{ matrix.build_type }}
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          cp build/instagram instagram-macos-${{ matrix.build_type }}
+        elif [ "$RUNNER_OS" == "Windows" ]; then
+          cp build/Release/instagram.exe instagram-windows-${{ matrix.build_type }}.exe
+        fi
+      shell: bash
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: InstagramCpp-${{ matrix.os }}-${{ matrix.build_type }}
+        path: |
+          instagram-*
+          !build/
