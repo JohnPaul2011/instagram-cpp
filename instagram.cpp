@@ -540,7 +540,7 @@ std::vector<Profile> Instagram::get_followers(const std::string& username, size_
 
     if (result.isMember("data") && result["data"].isMember("user")) {
         Json::Value edges = result["data"]["user"]["edge_followed_by"]["edges"];
-        for (Json::Value::ArrayIndex i = 0; i < static_cast<Json::Value::ArrayIndex>(std::min(edges.size(), limit)); i++) {
+        for (Json::Value::ArrayIndex i = 0; i < edges.size() && i < limit; i++) {
             followers.push_back(Profile::from_json(edges[i]["node"]));
         }
     }
@@ -582,7 +582,7 @@ std::vector<Profile> Instagram::get_following(const std::string& username, size_
 
     if (result.isMember("data") && result["data"].isMember("user")) {
         Json::Value edges = result["data"]["user"]["edge_follow"]["edges"];
-        for (Json::Value::ArrayIndex i = 0; i < static_cast<Json::Value::ArrayIndex>(std::min(edges.size(), limit)); i++) {
+        for (Json::Value::ArrayIndex i = 0; i < edges.size() && i < limit; i++) {
             following.push_back(Profile::from_json(edges[i]["node"]));
         }
     }
@@ -600,7 +600,7 @@ std::vector<Post> Instagram::get_posts(const std::string& username, size_t limit
     std::vector<Post> posts;
     Json::Value edges = data["entry_data"]["ProfilePage"][0]["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"];
 
-    for (Json::Value::ArrayIndex i = 0; i < static_cast<Json::Value::ArrayIndex>(std::min(edges.size(), limit)); i++) {
+    for (Json::Value::ArrayIndex i = 0; i < edges.size() && i < limit; i++) {
         posts.push_back(Post::from_json(edges[i]["node"]));
     }
 
@@ -627,7 +627,7 @@ std::vector<Post> Instagram::get_hashtag_posts(const std::string& hashtag, size_
     std::vector<Post> posts;
     if (data.isMember("graphql") && data["graphql"].isMember("hashtag")) {
         Json::Value edges = data["graphql"]["hashtag"]["edge_hashtag_to_media"]["edges"];
-        for (Json::Value::ArrayIndex i = 0; i < static_cast<Json::Value::ArrayIndex>(std::min(edges.size(), limit)); i++) {
+        for (Json::Value::ArrayIndex i = 0; i < edges.size() && i < limit; i++) {
             posts.push_back(Post::from_json(edges[i]["node"]));
         }
     }
